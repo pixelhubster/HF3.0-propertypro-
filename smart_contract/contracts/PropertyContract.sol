@@ -3,6 +3,7 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@identity.com/gateway-protocol-eth/contracts/Gated.sol";
+
 contract PropertyContract is ERC721, Ownable, Gated {
 
     struct Property {
@@ -16,17 +17,16 @@ contract PropertyContract is ERC721, Ownable, Gated {
         uint256 rate;
         uint256 shares;
     }
-    
     uint256 public nextTokenId;
     mapping(uint256 => Property) public properties;
     uint256[] public property_id;
     mapping(uint256 => uint256) public propertyBalance;
 
-    constructor(address gatewayTokenContract, uint256 gatekeeperNetwork) ERC721("PropertyContract", "RE") Gated(gatewayTokenContract, gatekeeperNetwork) {
+    constructor(address gatewayTokenContract, uint256 gatekeeperNetwork) ERC721("PropertyContract0x1", "RE0x1") Gated(gatewayTokenContract, gatekeeperNetwork) {
         nextTokenId = 1;
     }
     // event PropertyRegistered(uint256 id, string name, string location, address owner, string[3] image, uint256 price, string description, block.timestamp ,uint256 rate, uint256 share);
-    function createProperty(string memory _name, string memory _location, string[3] memory _image, uint256 _price, string memory _description, uint256 _rate, uint256 _shares) external onlyOwner {
+    function createProperty(string memory _name, string memory _location, string[3] memory _image, uint256 _price, string memory _description, uint256 _rate, uint256 _shares) external gated {
         Property memory newproperty = Property(_name,_location,msg.sender,_image,_price,_description, block.timestamp,_rate,_shares);
         properties[nextTokenId] = newproperty;
         _safeMint(msg.sender, nextTokenId);
@@ -35,7 +35,6 @@ contract PropertyContract is ERC721, Ownable, Gated {
         propertyBalance[nextTokenId] = 0;
         nextTokenId++;
     }
-
 
     //function to check if user has share in a property
     function hasShare(uint256 id) public view returns (bool,uint256) {
@@ -49,7 +48,7 @@ contract PropertyContract is ERC721, Ownable, Gated {
         }
         return (istrue, index);
     }
-    
+
     //get a property detail by providing the id
     function getProperty(uint256 _id) public view returns (string memory, string memory, address, string[3] memory, uint256, string memory, uint256, uint256, uint256 ) {
         // require(index < properties.length, "Invalid Property index");
@@ -128,19 +127,22 @@ contract PropertyContract is ERC721, Ownable, Gated {
         uint256 _share = openshares[index].share;
         (bool hasshare, uint256 hasindex ) = hasShare(_id);
         address _owner = msg.sender;
-        uint256 amount = properties[_id].price * (_share / 100);
-        require(msg.value == amount, "Insufficent balance");
-        //edit share
-        shares[_id][_index].share -= _share;
+        // uint256 amount = properties[_id].price * (_share / 100);
+        // require(msg.value == amount, "Insufficent balance");
         //pay owner
-        address payable shareOwner = payable(shares[_id][_index].owner);
-        shareOwner.transfer(amount);
-        emit buyshare(_id, msg.sender,amount);
+        payable(shares[_id][_index].owner).transfer(msg.value);
+        shares[_id][_index].share -= _share;
+   
+        emit buyshare(_id, msg.sender,msg.value);
         if (shares[_id][_index].share == 0) {
             shares[_id][_index].owner = msg.sender;
         } else if (hasshare) {
             shares[_id][hasindex].share += _share;
+            shares[_id][_index].balance -= (_share / shares[_id][_index].share) * shares[_id][_index].balance;
+            shares[_id][hasindex].balance += (_share / shares[_id][_index].share) * shares[_id][_index].balance;
         } else {
+            shares[_id][_index].balance -= (_share / shares[_id][_index].share ) * shares[_id][_index].balance;
+            uint256 amount = (_share / shares[_id][_index].share) * shares[_id][_index].balance;
             Shares memory newshare = Shares(_owner, _share,amount);
             shares[_id].push(newshare);
         }
@@ -150,48 +152,38 @@ contract PropertyContract is ERC721, Ownable, Gated {
     function invest(uint256 id,uint256 share) external payable {
         require(_exists(id), "Invalid Token Id");
         require(share <= properties[id].shares, "Insufficent shares");
-        uint256 amount = properties[id].price * (share / 100);
-        require(msg.value == amount, "Insufficent Balance" );
-
+        // uint256 amountFN = properties[id].price * (share / 100) * 1000000000000000000;
+        // require(msg.value == amount, "Insufficent Balance" );
         bool istrue = true;
         for (uint256 i = 0; i < shares[id].length; i++) {
             if (shares[id][i].owner == msg.sender) {
                 istrue = false;
                 shares[id][i].share += share;
-                //sent payment to contract address
-                address payable contractOwner = payable(address(this));
-                contractOwner.transfer(amount);
-                emit buyshare(id,msg.sender,amount);
+                emit buyshare(id,msg.sender,msg.value);
                 properties[id].shares -= share;
-                shares[id][i].balance += amount;
-                propertyBalance[id] += amount;
+                shares[id][i].balance += msg.value;
+                propertyBalance[id] += msg.value;
             } else {
                 istrue = true;
             }
         }
         if (istrue) {
-            //sent payment to contract address
-            address payable contractOwner = payable(address(this));
-            contractOwner.transfer(amount);
-            emit buyshare(id,msg.sender,amount);
-            Shares memory newshare = Shares(msg.sender,share,amount);
+            emit buyshare(id,msg.sender,msg.value);
+            Shares memory newshare = Shares(msg.sender,share,msg.value);
             shares[id].push(newshare);
             properties[id].shares -= share;
-            propertyBalance[id] += amount;
+            propertyBalance[id] += msg.value;
         }
     }
     
     //get participants
-
     function getParticipants(uint256 id) public view returns (Shares[] memory) {
         return shares[id];
     }
-
     //get balance
     function getBalance(uint256 id) public view returns (uint256){
         return propertyBalance[id];
     }
-
     //Decision
     mapping(uint256 => mapping(uint256 => mapping(address => bool))) public decisionvote;
     struct Decision {
@@ -228,68 +220,16 @@ contract PropertyContract is ERC721, Ownable, Gated {
             }
             decisionvote[_id][index][msg.sender] = true;
         }
-        // else if ( support == 50 && decline == 50) {
-        // }
     }
-    //Transact 
-    // struct Transact {
-    //     uint256 amount;
-    //     string reason;
-    //     address to;
-    //     address by;
-    //     uint256 support;
-    //     uint256 decline;
-    // }
-    // mapping(uint256 => mapping(uint256 => mapping(address => bool))) public transactvote;
-    // mapping(uint256 => Transact[]) public transact;
-    // function makeTransact(uint256 id,uint256 amount,string memory reason, address to) public {
-    //     Transact memory newtransact = Transact(amount,reason,to,msg.sender,0,0);
-    //     transact[id].push(newtransact);
-    // }
 
-    // function to deposit to contract
     function depositFunds(uint256 id,uint256 amount) external payable {
         // require(propertyBalance[id] >= amount, "Insufficent Balance");
-        payable(address(this)).transfer(amount);
+        // payable(address(this)).transfer(amount);
         for (uint256 i = 0; i<shares[id].length; i++) {
             uint256 _share = shares[id][i].share;
-            shares[id][i].balance += amount * (_share / 100);
+            shares[id][i].balance += amount * (_share / 100) * 1000000000000000000;
         }
-        propertyBalance[id] += amount;
-    }
-    
-    //   
-    // function voteTransact(uint256 _id, uint256 index, bool _i) public {
-    //     (bool hasshare, uint256 hasindex ) = hasShare(_id);
-    //     require(transactvote[_id][index][msg.sender] == false, "Already casted vote");
-    //     require(hasshare, "Do not have permision to contribute to project");
-    //     uint256 _share = shares[_id][hasindex].share;
-    //     uint256 support = transact[_id][index].support;
-    //     uint256 decline = transact[_id][index].decline;
-    //     // address to = transact[_id][index].to;
-    //     // uint256 amount = transact[_id][index].amount;
-    //     if (support + decline < 100) {
-    //         //you can vote
-    //         if (_i) {
-    //             transact[_id][index].support += _share; 
-    //         } else {
-    //             transact[_id][index].decline += _share;
-    //         }
-    //         transactvote[_id][index][msg.sender] = true;
-    //     }
-    //     if (support > 50) {
-    //         // depositFunds(_id,amount);
-    //     }
-    // }
-    //function to redraw from contract
-    function withdrawFunds(uint256 id, address to, uint256 amount) private {
-        require(propertyBalance[id] >= amount, "Insufficent Balance");
-        for (uint256 i = 0; i<shares[id].length; i++) {
-            uint256 _share = shares[id][i].share;
-            shares[id][i].balance -= amount * (_share / 100);
-        }
-        propertyBalance[id] -= amount;
-        payable(to).transfer(amount);
+        propertyBalance[id] += amount * 1000000000000000000;
     }
 
     //withdraw profit
@@ -299,21 +239,15 @@ contract PropertyContract is ERC721, Ownable, Gated {
         uint256 amount = shares[id][index].balance;
         uint256 share = shares[id][index].share;
         uint256 pprice = properties[id].price;
-        uint256 uramount = (pprice * share / 100);
+        uint256 uramount = (pprice * share / 100) * 1000000000000000000;
         require(amount > uramount, "No profit earned on share");
         uint256 profit = amount - uramount;
+        _amount = _amount * 1000000000000000000;
         require(_amount <= profit, "Low on profit");
         payable(msg.sender).transfer(_amount);
         shares[id][index].balance -= _amount;
         propertyBalance[id] -= _amount;
     }
-
-    // function getTransact(uint256 _id) public view returns (Transact[] memory) {
-    //     Transact[] memory newdec = transact[_id];
-    //     return newdec;
-    // }
-
-
     //request funds
 
     struct Requestfunds {
@@ -350,7 +284,13 @@ contract PropertyContract is ERC721, Ownable, Gated {
             requestvote[_id][index][msg.sender] = true;
         }
         if (support > 50) {
-            withdrawFunds(_id, to, amount);
+            require(propertyBalance[_id] >= amount * 1000000000000000000, "Insufficent Balance");
+            payable(to).transfer(amount);
+            for (uint256 i = 0; i<shares[_id].length; i++) {
+                uint256 _sharer = shares[_id][i].share;
+                shares[_id][i].balance -= amount * (_sharer / 100) * 1000000000000000000;
+            }
+            propertyBalance[_id] -= amount * 1000000000000000000;
         }
     }
 
@@ -476,29 +416,37 @@ contract PropertyContract is ERC721, Ownable, Gated {
             properties[id].owner = msg.sender;
         }
     }
+    // function withdrawFunds(uint256 id, address to, uint256 amount) external payable {
+    //     require(propertyBalance[id] >= amount * 1000000000000000000, "Insufficent Balance");
+    //     for (uint256 i = 0; i<shares[id].length; i++) {
+    //         uint256 _share = shares[id][i].share;
+    //         shares[id][i].balance -= amount * (_share / 100) * 1000000000000000000;
+    //     }
+    //     propertyBalance[id] -= amount * 1000000000000000000;
+    //     payable(to).transfer(amount);
+    // }
 
-
-    function terminateProperty(uint256 id) public  payable {
-        require(ownerOf(id) == msg.sender, "Must be owner");
-        bool istrue = false;
-        for (uint256 i = 0; i < shares[id].length; i++) {
-            uint256 sbalance = shares[id][id].balance;
-            if (shares[id][i].owner == msg.sender) {
-                istrue = true;
-            } else {
-                uint256 samount = properties[id].price * (shares[id][i].share / 100);
-                require(sbalance >= samount, "All shareholder's must have equivalent balance to shares");
-                istrue = true;
-            }
-        }
-        if (istrue) {
-            for (uint256 i = 0; i < shares[id].length; i++) {
-                uint256 sbalance = shares[id][id].balance;
-                payable(shares[id][i].owner).transfer(sbalance);
-            }
-            delete properties[id];
-            delete shares[id];
-            delete propertyBalance[id];
-        }
-    }
+    // function terminateProperty(uint256 id) public  payable gated {
+    //     require(ownerOf(id) == msg.sender, "Must be owner");
+    //     bool istrue = false;
+    //     for (uint256 i = 0; i < shares[id].length; i++) {
+    //         uint256 sbalance = shares[id][id].balance;
+    //         if (shares[id][i].owner == msg.sender) {
+    //             istrue = true;
+    //         } else {
+    //             uint256 samount = properties[id].price * (shares[id][i].share / 100);
+    //             require(sbalance >= samount, "All shareholder's must have equivalent balance to shares");
+    //             istrue = true;
+    //         }
+    //     }
+    //     if (istrue) {
+    //         for (uint256 i = 0; i < shares[id].length; i++) {
+    //             uint256 sbalance = shares[id][id].balance;
+    //             payable(shares[id][i].owner).transfer(sbalance);
+    //         }
+    //         delete properties[id];
+    //         delete shares[id];
+    //         delete propertyBalance[id];
+    //     }
+    // }
 }
