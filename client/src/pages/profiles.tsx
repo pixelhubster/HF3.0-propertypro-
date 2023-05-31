@@ -1,43 +1,13 @@
-import React, { useState, useContext, useRef } from "react";
+import { useState, useContext, useRef } from "react";
 import Createpopup from "../components/createpopup";
 import { MdCancel } from "react-icons/md";
 import AppContext from "../components/contract";
 import { IdentityButton, useGateway, GatewayStatus } from "@civic/ethereum-gateway-react";
-import Civicpass from "../assets/civicPass";
 const Profiles = () => {
-  // const { gatewayStatus, gatewayToken } = useGateway();
-  const { requestGatewayToken } = useGateway();
+  const { gatewayStatus} = useGateway();
   const [isOpen, setIsOpen] = useState(false);
   const { contract, web3, currentAccount, connectWallet } =
     useContext(AppContext);
-  async function createProperty(
-    name,
-    location,
-    address,
-    images,
-    price,
-    desc,
-    timestamp,
-    rate,
-    share
-  ) {
-    await contract.methods
-      .createProperty(
-        name,
-        location,
-        address,
-        images,
-        price,
-        desc,
-        timestamp,
-        rate,
-        share
-      )
-      .send({ from: web3.eth.defaultAccount })
-      .then((result) => {
-        setIsOpen(false);
-      });
-  }
   connectWallet;
   const nameRef = useRef(null);
   const locationRef = useRef(null);
@@ -61,6 +31,9 @@ const Profiles = () => {
     //create Property
     async function createProperty() {
       try {
+        // console.log(currentAccount)
+        // const amountToSend = web3.utils.toWei(10, 'XDC');
+        // console.log(amountToSend)
         await contract.methods
           .createProperty(
             form.name,
@@ -197,10 +170,9 @@ const Profiles = () => {
                     <input name="doc" type="file" className="p-2" required />
                   </div>
                   <IdentityButton className="mb-4 p-3 rounded-lg"/>
-                  {/* <button onClick={requestGatewayToken} >Hi</button> */}
                   <button
-                  // disabled={gatewayStatus != GatewayStatus.ACTIVE }
-                  className={`"p-1 px-5 w-10/12 text-white font-bold bg-blue-500 rounded-md" `}
+                  disabled={gatewayStatus != GatewayStatus.ACTIVE }
+                  className={`"p-2 px-5 w-10/12 text-white font-bold bg-blue-500 rounded-md" ${gatewayStatus && 'hidden'} `}
                   onClick={handleSubmit}
                 >
                   Create

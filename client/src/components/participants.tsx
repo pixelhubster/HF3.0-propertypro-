@@ -10,7 +10,7 @@ const Participants = (props) => {
         <p>{props.share}% S</p>
       </div>
       <div className="flex flex-row font-bold">
-        <p>{props.balance} XDC</p>
+        <p>{props.balance / 1000000000000000000} XDC</p>
       </div>
     </div>
   );

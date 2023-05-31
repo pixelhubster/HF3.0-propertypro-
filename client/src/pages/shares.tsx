@@ -17,7 +17,6 @@ const Shares = () => {
       }
     });
     
-    console.log("c", propertyCount)
     const shares = [];
     for (let i = 0; i < propertyCount; i++) {
       await contract.methods.getOpenShares(i).call((error,result) => {

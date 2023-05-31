@@ -42,45 +42,29 @@ const Contribution = () => {
   connectWallet();
   const getDetails = async () => {
     //get decision details
-    await contract.methods.getDecision(id).call((error, result) => {
-      if (error) {
-        console.log(error);
-      } else {
+    await contract.methods.getDecision(id).call({from : currentAccount }).then((result) => {
         decision.push(result);
-      }
     });
     setSdecide(decision);
 
     // get the transact requests
     const forsale: React.SetStateAction<never[]> = [];
-    await contract.methods.getOnSaleProperty(id).call((error, result) => {
-      if (error) {
-        console.log(error);
-      } else {
+    await contract.methods.getOnSaleProperty(id).call({ from : currentAccount }).then((result) => {
         sforsale.push(result);
-      }
     });
     setSforsale(forsale);
 
     //get funds requests
     const request = [];
-    await contract.methods.getRequestFunds(id).call((error, result) => {
-      if (error) {
-        console.log(error);
-      } else {
-        request.push(result);
-      }
+    await contract.methods.getRequestFunds(id).call({ from : currentAccount }).then((result) => {
+      request.push(result);
     });
     setSrequest(request);
 
     //get punish request
     const punish = [];
-    await contract.methods.getPunishment(id).call((error, result) => {
-      if (error) {
-        console.log(error);
-      } else {
-        punish.push(result);
-      }
+    await contract.methods.getPunishment(id).call({ from : currentAccount }).then((result) => {
+      punish.push(result);
     });
     setSpunish(punish);
 
@@ -91,6 +75,7 @@ const Contribution = () => {
         console.log(error);
       } else {
         participants.push(result);
+        console.log(result)
       }
     });
     setSparticipants(participants);
@@ -100,16 +85,15 @@ const Contribution = () => {
         console.log(error);
       } else {
         setSbalance(result);
+        console.log("B",result)
       }
     })
     //isOwner
-    await contract.methods.isOwner(id).call((error, result) => {
-      if (error) {
-        console.log(error);
-      } else {
+    await contract.methods.isOwner(id).call({ from : currentAccount }).then((result) => {
         setIsOwner(result);
-      }
+        console.log(result)
     })
+
   };
   // getDetails;
   // setSdecide(decision[0]);
@@ -199,7 +183,7 @@ const Contribution = () => {
   const handleSellShare = async () => {
     await contract.methods
       .sellShare(id, sshareRef.current.value)
-      .send({ from: currentAccount })
+      .send({ from: currentAccount})
       .then((result) => {
         console.log(result);
         setIsOpen(false);
@@ -208,9 +192,10 @@ const Contribution = () => {
   //handle deposit popup
   const damountRef = useRef()
   const handleDeposit = async () => {
+    const amount =  damountRef.current.value;
     await contract.methods
-      .depositFunds(id, damountRef.current.value)
-      .send({ from: currentAccount })
+      .depositFunds(id, amount)
+      .send({ from: currentAccount, value: damountRef.current.value * 1000000000000000000 })
       .then((result) => {
         console.log(result);
         setIsOpen(false);
@@ -603,7 +588,7 @@ const Contribution = () => {
       <div className="w-10/12 flex">
         <div className="w-2/3 relative h-[90%] overflow-hidden rounded-l-md">
           <div className="w-full bg-gray-200 h-[3rem] flex justify-between items-center px-4">
-            <p className="font-bold text-xl">{sbalance} XDC</p>
+            <p className="font-bold text-xl">{sbalance / 1000000000000000000} XDC</p>
             <button onClick={getDetails}>
               <BiRefresh className="text-2xl text-black" />
             </button>
@@ -696,7 +681,7 @@ const Contribution = () => {
                     key={indexx}
                     index={indexx}
                     support={sub[3]}
-                    decline={sub[3]}
+                    decline={sub[4]}
                     details={sub[0]}
                     to={sub[1]}
                     amount={sub[2]}

@@ -22,12 +22,7 @@ const Product = (props) => {
   }
   const [hasShare, setHasShare] = useState(false);
   async function hasShares() {
-    await contract.methods.hasShare(selected[7]).call((error, result) => {
-    if (error) {
-      console.log(error);
-    } else {
-      // setHasShare(result);
-    }
+    await contract.methods.hasShare(selected[7]).call({from : currentAccount }).then((result) => {
     console.log(result[0]);
     setHasShare(result[0]);
   });
@@ -35,10 +30,46 @@ const Product = (props) => {
   hasShares();
   //handle submit
   const handleSubmit = async () => {
-    await contract.methods.invest(selected[7], shareRef.current.value).send({ from : currentAccount}).then((result) => {
-      console.log("result", result)
-      setPop(false);
-    })
+    const amount = selected[1] * (shareRef.current.value / 100)
+    console.log(amount)
+
+    /// Approve the contract to manage your ERC721 tokens
+    // await contract.methods
+    // .approve("0x472a222d859C437F34d1368DF1423dC5D38794Be", selected[7])
+    // .send({ from: currentAccount });
+///
+    // await contract.methods
+    // .transferFrom(currentAccount, "0x472a222d859C437F34d1368DF1423dC5D38794Be", selected[7])
+    //   .send({ from: currentAccount })
+    //   .then((result) => {
+    //     console.log(result)
+    //    });
+    // Send transaction
+    // Prepare the function call
+    const functionCall = contract.methods.invest(selected[7], shareRef.current.value);
+
+    // Estimate the gas fee
+    let gasEstimate = 0;
+    functionCall.estimateGas({ from: currentAccount })
+      .then((gasEstimate) => {
+        console.log('Gas Estimate:', gasEstimate);
+        gasEstimate = gasEstimate;
+      })
+      .catch((error) => {
+        console.error('Error estimating gas:', error);
+      });
+
+    await contract.methods.invest(selected[7], shareRef.current.value).send({
+      from: currentAccount,
+      value: amount * 1000000000000000000,
+    }).then((result) => {
+      console.log("result", result);
+      setPop(false)
+    }).catch((error) => {
+      console.log(error)
+      console.log(gasEstimate)
+    });
+    
   };
   getShares(0);
   return (

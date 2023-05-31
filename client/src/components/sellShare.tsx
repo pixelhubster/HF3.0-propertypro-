@@ -23,7 +23,7 @@ const Sellshare = (props) => {
     getProperty();
   }, []);
   async function buyShare() {
-    await contract.methods.buyShare(props.shareindex).send({from : currentAccount}).then((result) => {
+    await contract.methods.buyShare(props.shareindex).send({from : currentAccount, value: propert[0][4] * (props.share / 100) * 1000000000000000000}).then((result) => {
       console.log(result);
     })
     getProperty();

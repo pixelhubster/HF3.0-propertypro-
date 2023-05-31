@@ -3,18 +3,21 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "homepage": "https://pixelhubster.github.io/propertypro-deployed",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "dependencies": {
     "@civic/ethereum-gateway-react": "^0.10.3",
     "@metamask/detect-provider": "^2.0.0",
     "@web3-react/core": "^8.2.0",
     "@web3-react/metamask": "^8.2.1",
-    "ethers": "^6.3.0",
+    "ethers": "^5.0.0",
     "leaflet": "^1.9.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -43,4 +46,5 @@
     "typescript": "^5.0.2",
     "vite": "^4.3.2"
   }
+  
 }
